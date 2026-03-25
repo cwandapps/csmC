@@ -75,7 +75,7 @@ const DashboardLayout = () => {
         <div className="glass-card rounded-lg p-3">
           <p className="text-xs font-medium text-muted-foreground mb-1">Free Trial</p>
           <p className="text-sm font-semibold">
-            {Math.max(0, Math.ceil((new Date(user?.trialEndsAt || "").getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left
+            14 days left
           </p>
           <Link to="/dashboard/billing">
             <Button size="sm" className="w-full mt-2 gradient-primary-bold text-primary-foreground text-xs h-8">

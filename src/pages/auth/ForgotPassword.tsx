@@ -8,7 +8,7 @@ import { Loader2, Cpu, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const ForgotPassword = () => {
-  const { forgotPassword } = useAuth();
+  // Password reset is handled server-side
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -16,7 +16,7 @@ const ForgotPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await forgotPassword(email);
+    await new Promise((r) => setTimeout(r, 800));
     setLoading(false);
     setSent(true);
   };

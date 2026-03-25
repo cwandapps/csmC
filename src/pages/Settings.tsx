@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Save, Shield } from "lucide-react";
+import { Building2, Save, Shield, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [profile, setProfile] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
@@ -19,13 +19,61 @@ const Settings = () => {
   });
   const [org, setOrg] = useState({
     name: user?.organizationName || "",
-    address: "123 Innovation Drive, Suite 400",
-    contactEmail: user?.email || "",
-    contactPhone: "+1 (555) 123-4567",
+    address: (user as any)?.organization?.address || "",
+    contactEmail: (user as any)?.organization?.contactEmail || user?.email || "",
+    contactPhone: (user as any)?.organization?.contactPhone || "",
   });
+  const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingOrg, setSavingOrg] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
-  const handleSaveProfile = () => toast.success("Profile updated successfully");
-  const handleSaveOrg = () => toast.success("Organization updated successfully");
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      await api.updateProfile(profile);
+      await refreshUser();
+      toast.success("Profile updated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSaveOrg = async () => {
+    setSavingOrg(true);
+    try {
+      await api.updateOrganization(org);
+      await refreshUser();
+      toast.success("Organization updated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update organization");
+    } finally {
+      setSavingOrg(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (passwords.new !== passwords.confirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (passwords.new.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await api.updatePassword({ currentPassword: passwords.current, newPassword: passwords.new });
+      toast.success("Password updated");
+      setPasswords({ current: "", new: "", confirm: "" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update password");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -54,7 +102,6 @@ const Settings = () => {
                     {profile.firstName[0]}{profile.lastName[0]}
                   </AvatarFallback>
                 </Avatar>
-                <Button variant="outline" size="sm">Change avatar</Button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -70,8 +117,9 @@ const Settings = () => {
                 <Label>Email</Label>
                 <Input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} />
               </div>
-              <Button onClick={handleSaveProfile} className="gradient-primary-bold text-primary-foreground">
-                <Save className="w-4 h-4 mr-2" />Save changes
+              <Button onClick={handleSaveProfile} className="gradient-primary-bold text-primary-foreground" disabled={savingProfile}>
+                {savingProfile ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save changes
               </Button>
             </CardContent>
           </Card>
@@ -102,8 +150,9 @@ const Settings = () => {
                   <Input value={org.contactPhone} onChange={(e) => setOrg({ ...org, contactPhone: e.target.value })} />
                 </div>
               </div>
-              <Button onClick={handleSaveOrg} className="gradient-primary-bold text-primary-foreground">
-                <Save className="w-4 h-4 mr-2" />Save changes
+              <Button onClick={handleSaveOrg} className="gradient-primary-bold text-primary-foreground" disabled={savingOrg}>
+                {savingOrg ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save changes
               </Button>
             </CardContent>
           </Card>
@@ -112,23 +161,24 @@ const Settings = () => {
         <TabsContent value="security" className="space-y-6">
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5" />Security</CardTitle>
-              <CardDescription>Manage your password and security settings</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5" />Change Password</CardTitle>
+              <CardDescription>Update your password</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Current password</Label>
-                <Input type="password" placeholder="••••••••" />
+                <Input type="password" value={passwords.current} onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>New password</Label>
-                <Input type="password" placeholder="••••••••" />
+                <Input type="password" value={passwords.new} onChange={(e) => setPasswords({ ...passwords, new: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Confirm new password</Label>
-                <Input type="password" placeholder="••••••••" />
+                <Input type="password" value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} />
               </div>
-              <Button onClick={() => toast.success("Password updated")} className="gradient-primary-bold text-primary-foreground">
+              <Button onClick={handleChangePassword} className="gradient-primary-bold text-primary-foreground" disabled={savingPassword}>
+                {savingPassword && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Update password
               </Button>
             </CardContent>

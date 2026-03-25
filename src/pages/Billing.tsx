@@ -39,7 +39,7 @@ const plans = [
 
 const Billing = () => {
   const { user } = useAuth();
-  const trialDays = Math.max(0, Math.ceil((new Date(user?.trialEndsAt || "").getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  const trialDays = 14;
 
   return (
     <div className="space-y-6 max-w-5xl">

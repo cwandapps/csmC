@@ -35,8 +35,8 @@ const Register = () => {
     try {
       await register(form);
       navigate("/dashboard");
-    } catch {
-      setError("Registration failed");
+    } catch (err: any) {
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
