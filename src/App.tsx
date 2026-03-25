@@ -33,7 +33,8 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => (
   <Routes>
-    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/" element={<Navigate to="/display" replace />} />
+    <Route path="/display" element={<SharedDisplay />} />
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
     <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
@@ -45,7 +46,6 @@ const AppRoutes = () => (
       <Route path="analytics" element={<AnalyticsPage />} />
       <Route path="settings" element={<Settings />} />
       <Route path="billing" element={<Billing />} />
-      <Route path="shared-display" element={<SharedDisplay />} />
     </Route>
     <Route path="*" element={<NotFound />} />
   </Routes>
