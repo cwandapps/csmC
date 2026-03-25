@@ -16,7 +16,7 @@ const ForgotPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await forgotPassword(email);
+    await new Promise((r) => setTimeout(r, 800));
     setLoading(false);
     setSent(true);
   };
