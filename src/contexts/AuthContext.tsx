@@ -6,11 +6,13 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
+  username: string;
   organizationName: string;
   organizationType: string;
   organizationId: number;
   role: string;
-  isPrimary: boolean;
+  isVerified: boolean;
+  plan: string;
   avatar?: string;
 }
 
@@ -45,15 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password);
     localStorage.setItem("csms_token", res.token);
-    localStorage.setItem("csms_user", JSON.stringify(res.user));
-    setUser(res.user);
+    localStorage.setItem("csms_user", JSON.stringify(res.admin));
+    setUser(res.admin);
   }, []);
 
   const register = useCallback(async (data: RegisterData) => {
     const res = await api.register(data);
     localStorage.setItem("csms_token", res.token);
-    localStorage.setItem("csms_user", JSON.stringify(res.user));
-    setUser(res.user);
+    localStorage.setItem("csms_user", JSON.stringify(res.admin));
+    setUser(res.admin);
   }, []);
 
   const logout = useCallback(() => {

@@ -1,8 +1,22 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
 
 class ApiClient {
   private getToken(): string | null {
     return localStorage.getItem('csms_token');
+  }
+
+  private getOrgId(): number | null {
+    const user = localStorage.getItem('csms_user');
+    if (user) {
+      try { return JSON.parse(user).organizationId; } catch { return null; }
+    }
+    return null;
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -22,28 +36,67 @@ class ApiClient {
       throw new Error('Session expired');
     }
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    return data as T;
+    const json = await res.json();
+    if (!res.ok || json.success === false) {
+      throw new Error(json.error || 'Request failed');
+    }
+    // Backend wraps in { success, data } — unwrap
+    return (json.data !== undefined ? json.data : json) as T;
+  }
+
+  private async requestRaw<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const token = this.getToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    if (res.status === 401) {
+      localStorage.removeItem('csms_token');
+      localStorage.removeItem('csms_user');
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+    const json = await res.json();
+    if (!res.ok || json.success === false) throw new Error(json.error || 'Request failed');
+    return json as T;
   }
 
   // Auth
   async login(email: string, password: string) {
-    return this.request<{ token: string; user: any }>('/auth/login', {
+    return this.request<{ token: string; admin: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async register(data: { firstName: string; lastName: string; email: string; password: string; organizationName: string; organizationType: string }) {
-    return this.request<{ token: string; user: any }>('/auth/register', {
+  async register(data: {
+    firstName: string; lastName: string; email: string; password: string;
+    organizationName: string; organizationType: string;
+    username?: string; orgAddress?: string; orgEmail?: string; orgPhone?: string; plan?: string;
+  }) {
+    return this.request<{ token: string; admin: any }>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        username: data.username || data.email,
+        orgName: data.organizationName,
+        orgType: data.organizationType,
+        orgAddress: '',
+        orgEmail: data.email,
+        orgPhone: '',
+        plan: data.plan || 'free_trial',
+      }),
     });
   }
 
   async getMe() {
-    return this.request<any>('/auth/me');
+    const res = await this.request<{ admin: any }>('/auth/profile');
+    return res.admin;
   }
 
   async updateProfile(data: { firstName: string; lastName: string; email: string }) {
@@ -58,9 +111,10 @@ class ApiClient {
     return this.request<any>('/auth/organization', { method: 'PUT', body: JSON.stringify(data) });
   }
 
-  // Users
+  // Users — scoped by org
   async getUsers() {
-    return this.request<any[]>('/users');
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/users?org_id=${orgId}`);
   }
 
   async getUser(id: number) {
@@ -68,7 +122,11 @@ class ApiClient {
   }
 
   async createUser(data: any) {
-    return this.request<any>('/users', { method: 'POST', body: JSON.stringify(data) });
+    const orgId = this.getOrgId();
+    return this.request<any>('/users', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, organizationId: orgId }),
+    });
   }
 
   async updateUser(id: number, data: any) {
@@ -81,11 +139,16 @@ class ApiClient {
 
   // Devices
   async getDevices() {
-    return this.request<any[]>('/devices');
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/devices?org_id=${orgId}`);
   }
 
   async createDevice(data: any) {
-    return this.request<any>('/devices', { method: 'POST', body: JSON.stringify(data) });
+    const orgId = this.getOrgId();
+    return this.request<any>('/devices', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, organizationId: orgId }),
+    });
   }
 
   async updateDevice(id: number, data: any) {
@@ -96,18 +159,24 @@ class ApiClient {
     return this.request<any>(`/devices/${id}`, { method: 'DELETE' });
   }
 
-  // Attendance
+  // Attendance — scoped by org via path param
   async getAttendance(params?: { date?: string; status?: string; page?: number; limit?: number }) {
+    const orgId = this.getOrgId();
     const query = new URLSearchParams();
     if (params?.date) query.set('date', params.date);
     if (params?.status && params.status !== 'all') query.set('status', params.status);
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
-    return this.request<{ data: any[]; total: number; page: number; limit: number }>(`/attendance?${query}`);
+    const qs = query.toString();
+    return this.requestRaw<{ data: any[]; total: number }>(`/attendance/${orgId}${qs ? '?' + qs : ''}`);
   }
 
   async createAttendance(data: { userId: number; deviceId: number; method: string; status?: string }) {
-    return this.request<any>('/attendance', { method: 'POST', body: JSON.stringify(data) });
+    const orgId = this.getOrgId();
+    return this.request<any>('/attendance', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, organizationId: orgId }),
+    });
   }
 
   async deleteAttendance(id: number) {
@@ -115,24 +184,60 @@ class ApiClient {
   }
 
   async getAttendanceStats() {
-    return this.request<any>('/attendance/stats');
+    const orgId = this.getOrgId();
+    return this.request<any>(`/attendance/stats/${orgId}`);
+  }
+
+  // Analytics
+  async getAnalyticsHourly() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/analytics/hourly/${orgId}`);
+  }
+
+  async getAnalyticsWeekly() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/analytics/weekly/${orgId}`);
+  }
+
+  async getAnalyticsDeviceUsage() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/analytics/device-usage/${orgId}`);
+  }
+
+  async getAnalyticsMonthly() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/analytics/monthly/${orgId}`);
+  }
+
+  async getDashboardStats() {
+    const orgId = this.getOrgId();
+    return this.request<any>(`/dashboard/stats/${orgId}`);
+  }
+
+  async getRecentActivity() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/dashboard/recent/${orgId}`);
   }
 
   // Lookups
   async getClasses() {
-    return this.request<any[]>('/lookups/classes');
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/lookups/classes?org_id=${orgId}`);
   }
 
   async createClass(name: string) {
-    return this.request<any>('/lookups/classes', { method: 'POST', body: JSON.stringify({ name }) });
+    const orgId = this.getOrgId();
+    return this.request<any>('/lookups/classes', { method: 'POST', body: JSON.stringify({ name, organizationId: orgId }) });
   }
 
   async getDepartments() {
-    return this.request<any[]>('/lookups/departments');
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/lookups/departments?org_id=${orgId}`);
   }
 
   async createDepartment(name: string) {
-    return this.request<any>('/lookups/departments', { method: 'POST', body: JSON.stringify({ name }) });
+    const orgId = this.getOrgId();
+    return this.request<any>('/lookups/departments', { method: 'POST', body: JSON.stringify({ name, organizationId: orgId }) });
   }
 
   async getSections(classId: number) {
@@ -140,7 +245,8 @@ class ApiClient {
   }
 
   async getEmployeeCategories() {
-    return this.request<any[]>('/lookups/employee-categories');
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/lookups/employee-categories?org_id=${orgId}`);
   }
 
   // Health

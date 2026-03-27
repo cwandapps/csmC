@@ -1,40 +1,46 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
-import { useState } from "react";
-
-const hourlyData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${i.toString().padStart(2, "0")}:00`,
-  checkIns: i >= 7 && i <= 9 ? Math.floor(Math.random() * 200 + 100) : i >= 16 && i <= 18 ? Math.floor(Math.random() * 150 + 50) : Math.floor(Math.random() * 30),
-}));
-
-const weeklyComparison = [
-  { week: "W1", students: 420, employees: 180 },
-  { week: "W2", students: 450, employees: 190 },
-  { week: "W3", students: 430, employees: 175 },
-  { week: "W4", students: 460, employees: 195 },
-];
-
-const deviceUsage = [
-  { device: "Main Entrance", scans: 3420 },
-  { device: "Side Gate", scans: 1890 },
-  { device: "Lab Door", scans: 1250 },
-  { device: "Library", scans: 980 },
-  { device: "Cafeteria", scans: 750 },
-  { device: "Parking", scans: 620 },
-];
-
-const monthlyData = [
-  { month: "Oct", total: 18500 },
-  { month: "Nov", total: 19200 },
-  { month: "Dec", total: 15800 },
-  { month: "Jan", total: 20100 },
-  { month: "Feb", total: 21400 },
-  { month: "Mar", total: 19800 },
-];
+import { Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 const AnalyticsPage = () => {
   const [period, setPeriod] = useState("month");
+  const [hourlyData, setHourlyData] = useState<any[]>([]);
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [deviceUsage, setDeviceUsage] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [hourly, weekly, devices, monthly] = await Promise.all([
+          api.getAnalyticsHourly().catch(() => []),
+          api.getAnalyticsWeekly().catch(() => []),
+          api.getAnalyticsDeviceUsage().catch(() => []),
+          api.getAnalyticsMonthly().catch(() => []),
+        ]);
+        setHourlyData(hourly);
+        setWeeklyData(weekly);
+        setDeviceUsage(devices);
+        setMonthlyData(monthly);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [period]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -61,15 +67,19 @@ const AnalyticsPage = () => {
             <CardTitle className="text-base">Hourly Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={hourlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
-                <XAxis dataKey="hour" tick={{ fontSize: 10 }} stroke="hsl(220, 10%, 46%)" interval={3} />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                <Tooltip />
-                <Area type="monotone" dataKey="checkIns" stroke="hsl(211, 100%, 50%)" fill="hsl(211, 100%, 50%)" fillOpacity={0.15} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {hourlyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={hourlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 10 }} stroke="hsl(220, 10%, 46%)" interval={3} />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="checkIns" stroke="hsl(211, 100%, 50%)" fill="hsl(211, 100%, 50%)" fillOpacity={0.15} strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">No hourly data available</div>
+            )}
           </CardContent>
         </Card>
 
@@ -78,16 +88,20 @@ const AnalyticsPage = () => {
             <CardTitle className="text-base">Weekly by Role</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={weeklyComparison}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
-                <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                <Tooltip />
-                <Bar dataKey="students" fill="hsl(211, 100%, 50%)" radius={[6, 6, 0, 0]} name="Students" />
-                <Bar dataKey="employees" fill="hsl(227, 67%, 80%)" radius={[6, 6, 0, 0]} name="Employees" />
-              </BarChart>
-            </ResponsiveContainer>
+            {weeklyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
+                  <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                  <Tooltip />
+                  <Bar dataKey="students" fill="hsl(211, 100%, 50%)" radius={[6, 6, 0, 0]} name="Students" />
+                  <Bar dataKey="employees" fill="hsl(227, 67%, 80%)" radius={[6, 6, 0, 0]} name="Employees" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">No weekly data available</div>
+            )}
           </CardContent>
         </Card>
 
@@ -96,15 +110,19 @@ const AnalyticsPage = () => {
             <CardTitle className="text-base">Device Usage</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={deviceUsage} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
-                <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                <YAxis type="category" dataKey="device" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" width={100} />
-                <Tooltip />
-                <Bar dataKey="scans" fill="hsl(211, 100%, 50%)" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {deviceUsage.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={deviceUsage} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
+                  <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                  <YAxis type="category" dataKey="device" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" width={100} />
+                  <Tooltip />
+                  <Bar dataKey="scans" fill="hsl(211, 100%, 50%)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">No device usage data available</div>
+            )}
           </CardContent>
         </Card>
 
@@ -113,15 +131,19 @@ const AnalyticsPage = () => {
             <CardTitle className="text-base">Monthly Total Scans</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                <Tooltip />
-                <Line type="monotone" dataKey="total" stroke="hsl(211, 100%, 50%)" strokeWidth={2.5} dot={{ r: 5, fill: "hsl(211, 100%, 50%)" }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {monthlyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 20%, 88%)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="total" stroke="hsl(211, 100%, 50%)" strokeWidth={2.5} dot={{ r: 5, fill: "hsl(211, 100%, 50%)" }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">No monthly data available</div>
+            )}
           </CardContent>
         </Card>
       </div>
