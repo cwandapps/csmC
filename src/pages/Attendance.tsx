@@ -23,14 +23,13 @@ const AttendancePage = () => {
   const fetchAttendance = async () => {
     setLoading(true);
     try {
-      const data = await api.getAttendance({ status: statusFilter, page, limit: 50 });
-      // Backend may return array directly or { data, total }
-      if (Array.isArray(data)) {
-        setRecords(data);
-        setTotal(data.length);
+      const res: any = await api.getAttendance({ status: statusFilter, page, limit: 50 });
+      if (Array.isArray(res)) {
+        setRecords(res);
+        setTotal(res.length);
       } else {
-        setRecords((data as any).data || []);
-        setTotal((data as any).total || 0);
+        setRecords(res || []);
+        setTotal(0);
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to load attendance");
