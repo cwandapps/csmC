@@ -23,14 +23,9 @@ const AttendancePage = () => {
   const fetchAttendance = async () => {
     setLoading(true);
     try {
-      const res: any = await api.getAttendance({ status: statusFilter, page, limit: 50 });
-      if (Array.isArray(res)) {
-        setRecords(res);
-        setTotal(res.length);
-      } else {
-        setRecords(res || []);
-        setTotal(0);
-      }
+      const res = await api.getAttendance({ status: statusFilter, page, limit: 50 });
+      setRecords(res.data || []);
+      setTotal(res.total || 0);
     } catch (err: any) {
       toast.error(err.message || "Failed to load attendance");
     } finally {
