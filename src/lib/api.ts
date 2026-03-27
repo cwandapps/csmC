@@ -168,7 +168,7 @@ class ApiClient {
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
-    return this.request<any[]>(`/attendance/${orgId}${qs ? '?' + qs : ''}`);
+    return this.requestRaw<{ data: any[]; total: number }>(`/attendance/${orgId}${qs ? '?' + qs : ''}`);
   }
 
   async createAttendance(data: { userId: number; deviceId: number; method: string; status?: string }) {
