@@ -38,7 +38,7 @@ const AppRoutes = () => (
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
     <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-    <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+    <Route path="/dashboard" element={<DashboardLayout />}>
       <Route index element={<Dashboard />} />
       <Route path="users" element={<UsersPage />} />
       <Route path="devices" element={<DevicesPage />} />
