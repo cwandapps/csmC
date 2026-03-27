@@ -44,6 +44,25 @@ class ApiClient {
     return (json.data !== undefined ? json.data : json) as T;
   }
 
+  private async requestRaw<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const token = this.getToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    if (res.status === 401) {
+      localStorage.removeItem('csms_token');
+      localStorage.removeItem('csms_user');
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+    const json = await res.json();
+    if (!res.ok || json.success === false) throw new Error(json.error || 'Request failed');
+    return json as T;
+  }
+
   // Auth
   async login(email: string, password: string) {
     return this.request<{ token: string; admin: any }>('/auth/login', {
