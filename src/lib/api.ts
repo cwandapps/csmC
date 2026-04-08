@@ -1,11 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  error?: string;
-}
-
 class ApiClient {
   private getToken(): string | null {
     return localStorage.getItem('csms_token');
@@ -40,7 +34,6 @@ class ApiClient {
     if (!res.ok || json.success === false) {
       throw new Error(json.error || 'Request failed');
     }
-    // Backend wraps in { success, data } — unwrap
     return (json.data !== undefined ? json.data : json) as T;
   }
 
@@ -63,11 +56,10 @@ class ApiClient {
     return json as T;
   }
 
-  // Auth
+  // ============ AUTH ============
   async login(email: string, password: string) {
     return this.request<{ token: string; admin: any }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
+      method: 'POST', body: JSON.stringify({ email, password }),
     });
   }
 
@@ -79,17 +71,10 @@ class ApiClient {
     return this.request<{ token: string; admin: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        password: data.password,
-        username: data.username || data.email,
-        orgName: data.organizationName,
-        orgType: data.organizationType,
-        orgAddress: '',
-        orgEmail: data.email,
-        orgPhone: '',
-        plan: data.plan || 'free_trial',
+        firstName: data.firstName, lastName: data.lastName, email: data.email,
+        password: data.password, username: data.username || data.email,
+        orgName: data.organizationName, orgType: data.organizationType,
+        orgAddress: '', orgEmail: data.email, orgPhone: '', plan: data.plan || 'free_trial',
       }),
     });
   }
@@ -111,7 +96,7 @@ class ApiClient {
     return this.request<any>('/auth/organization', { method: 'PUT', body: JSON.stringify(data) });
   }
 
-  // Users — scoped by org
+  // ============ USERS ============
   async getUsers() {
     const orgId = this.getOrgId();
     return this.request<any[]>(`/users?org_id=${orgId}`);
@@ -123,10 +108,7 @@ class ApiClient {
 
   async createUser(data: any) {
     const orgId = this.getOrgId();
-    return this.request<any>('/users', {
-      method: 'POST',
-      body: JSON.stringify({ ...data, organizationId: orgId }),
-    });
+    return this.request<any>('/users', { method: 'POST', body: JSON.stringify({ ...data, organizationId: orgId }) });
   }
 
   async updateUser(id: number, data: any) {
@@ -137,7 +119,7 @@ class ApiClient {
     return this.request<any>(`/users/${id}`, { method: 'DELETE' });
   }
 
-  // Devices
+  // ============ DEVICES ============
   async getDevices() {
     const orgId = this.getOrgId();
     return this.request<any[]>(`/devices?org_id=${orgId}`);
@@ -145,10 +127,7 @@ class ApiClient {
 
   async createDevice(data: any) {
     const orgId = this.getOrgId();
-    return this.request<any>('/devices', {
-      method: 'POST',
-      body: JSON.stringify({ ...data, organizationId: orgId }),
-    });
+    return this.request<any>('/devices', { method: 'POST', body: JSON.stringify({ ...data, organizationId: orgId }) });
   }
 
   async updateDevice(id: number, data: any) {
@@ -159,24 +138,22 @@ class ApiClient {
     return this.request<any>(`/devices/${id}`, { method: 'DELETE' });
   }
 
-  // Attendance — scoped by org via path param
-  async getAttendance(params?: { date?: string; status?: string; page?: number; limit?: number }) {
+  // ============ ATTENDANCE ============
+  async getAttendance(params?: { date?: string; status?: string; method?: string; page?: number; limit?: number }) {
     const orgId = this.getOrgId();
     const query = new URLSearchParams();
     if (params?.date) query.set('date', params.date);
     if (params?.status && params.status !== 'all') query.set('status', params.status);
+    if (params?.method && params.method !== 'all') query.set('method', params.method);
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
     return this.requestRaw<{ data: any[]; total: number }>(`/attendance/${orgId}${qs ? '?' + qs : ''}`);
   }
 
-  async createAttendance(data: { userId: number; deviceId: number; method: string; status?: string }) {
+  async createAttendance(data: { userId: number; deviceId: number; method: string; status?: string; notes?: string; scheduleId?: number }) {
     const orgId = this.getOrgId();
-    return this.request<any>('/attendance', {
-      method: 'POST',
-      body: JSON.stringify({ ...data, organizationId: orgId }),
-    });
+    return this.request<any>('/attendance', { method: 'POST', body: JSON.stringify({ ...data, organizationId: orgId }) });
   }
 
   async deleteAttendance(id: number) {
@@ -188,7 +165,49 @@ class ApiClient {
     return this.request<any>(`/attendance/stats/${orgId}`);
   }
 
-  // Analytics
+  // ============ SCHEDULES ============
+  async getSchedules() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/schedules?org_id=${orgId}`);
+  }
+
+  async getSchedule(id: number) {
+    return this.request<any>(`/schedules/${id}`);
+  }
+
+  async createSchedule(data: any) {
+    const orgId = this.getOrgId();
+    return this.request<any>('/schedules', { method: 'POST', body: JSON.stringify({ ...data, organizationId: orgId }) });
+  }
+
+  async updateSchedule(id: number, data: any) {
+    return this.request<any>(`/schedules/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async deleteSchedule(id: number) {
+    return this.request<any>(`/schedules/${id}`, { method: 'DELETE' });
+  }
+
+  // ============ ATTENDANCE TYPES ============
+  async getAttendanceTypes() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/attendance-types?org_id=${orgId}`);
+  }
+
+  async createAttendanceType(data: any) {
+    const orgId = this.getOrgId();
+    return this.request<any>('/attendance-types', { method: 'POST', body: JSON.stringify({ ...data, organizationId: orgId }) });
+  }
+
+  async updateAttendanceType(id: number, data: any) {
+    return this.request<any>(`/attendance-types/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async deleteAttendanceType(id: number) {
+    return this.request<any>(`/attendance-types/${id}`, { method: 'DELETE' });
+  }
+
+  // ============ ANALYTICS ============
   async getAnalyticsHourly() {
     const orgId = this.getOrgId();
     return this.request<any[]>(`/analytics/hourly/${orgId}`);
@@ -219,7 +238,7 @@ class ApiClient {
     return this.request<any[]>(`/dashboard/recent/${orgId}`);
   }
 
-  // Lookups
+  // ============ LOOKUPS ============
   async getClasses() {
     const orgId = this.getOrgId();
     return this.request<any[]>(`/lookups/classes?org_id=${orgId}`);
@@ -240,8 +259,9 @@ class ApiClient {
     return this.request<any>('/lookups/departments', { method: 'POST', body: JSON.stringify({ name, organizationId: orgId }) });
   }
 
-  async getSections(classId: number) {
-    return this.request<any[]>(`/lookups/sections/${classId}`);
+  async getSections() {
+    const orgId = this.getOrgId();
+    return this.request<any[]>(`/lookups/sections?org_id=${orgId}`);
   }
 
   async getEmployeeCategories() {
@@ -249,7 +269,6 @@ class ApiClient {
     return this.request<any[]>(`/lookups/employee-categories?org_id=${orgId}`);
   }
 
-  // Health
   async healthCheck() {
     return this.request<{ status: string; database: string }>('/health');
   }
